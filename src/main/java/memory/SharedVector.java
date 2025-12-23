@@ -23,7 +23,7 @@ public class SharedVector {
     }
 
     public double get(int index) {
-        lock.readLock();
+        readLock();
         try {
            if (index < 0 || index >= vector.length) {
             throw new IndexOutOfBoundsException("Index " + index + " is out of bounds.");
@@ -31,27 +31,27 @@ public class SharedVector {
             return vector[index];
         } 
         finally {
-            lock.readUnlock(); // Release read lock
+            readUnlock(); // Release read lock
         }
     }
 
     public int length() {
-        lock.readLock();
+        readLock();
         try {
             return vector.length;
         } 
         finally {
-            lock.readUnlock(); // Release read lock
+            readUnlock(); // Release read lock
         }
     }
 
     public VectorOrientation getOrientation() {
-        lock.readLock();
+        readLock();
         try {
             return orientation;
         } 
         finally {
-            lock.readUnlock(); // Release read lock
+            readUnlock(); // Release read lock
         }
     }
 
@@ -72,17 +72,17 @@ public class SharedVector {
     }
 
     public void transpose() {
-        lock.writeLock();
+        writeLock();
         try{
-            if (orientation == VectorOrientation.ROW) {
-                orientation = VectorOrientation.COLUMN;
+            if (orientation == VectorOrientation.ROW_MAJOR) {
+                orientation = VectorOrientation.COLUMN_MAJOR;
             } 
             else {
-                orientation = VectorOrientation.ROW;
+                orientation = VectorOrientation.ROW_MAJOR;
             }
         } 
         finally {
-            lock.writeUnlock(); // Release write lock
+            lock.writeLock().unlock(); // Release write lock
         }
     }
 
@@ -90,33 +90,89 @@ public class SharedVector {
         if (other == null) {
                 throw new IllegalArgumentException("Cannot add a null vector.");
             }
-        lock.writeLock();
-        try{
-            if (this.orientation != other.orientation) {
-                throw new IllegalArgumentException("Vectors must have the same orientation to add.");
-            }
-            if (this.length() != other.length()) {
-                throw new IllegalArgumentException("Vectors must be of the same length to add.");
-            }
-            for (int i = 0; i < this.length(); i++) {
-                this.vector[i] = this.vecotr[i] + other.get(i);
-            }
-        } 
-        finally {
-            lock.writeUnlock(); // Release write lock
-        }
         
+        if (System.identityHashCode(this) > System.identityHashCode(other)) {
+            other.readLock();
+            try {
+                writeLock();
+                try{
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    for (int i = 0; i < this.length(); i++) {
+                        this.vector[i] = this.vector[i] + other.get(i);
+                    }
+                } 
+                finally {
+                    writeUnlock(); // Release write lock
+                }
+            }
+            finally {
+                other.readUnlock(); // Release read lock
+                }
+        }
+        else if (System.identityHashCode(this) < System.identityHashCode(other)) { 
+            writeLock();
+            try {
+                other.readLock();
+                try{
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    for (int i = 0; i < this.length(); i++) {
+                        this.vector[i] = this.vector[i] + other.get(i);
+                    }
+                } 
+                finally {
+                    other.readUnlock(); // Release read lock
+                }
+            }
+            finally {
+                writeUnlock(); // Release write lock
+            }
+        }
+        else  {
+        synchronized (SharedVector.class) {
+            writeLock();
+            try {
+                other.readLock();
+                try {
+                    
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    for (int i = 0; i < this.length(); i++) {
+                        this.vector[i] = this.vector[i] + other.get(i);
+                    }
+                } finally {
+                    other.readUnlock();
+                }
+            } finally {
+                writeUnlock();
+            }
+        }
     }
+}
+
 
     public void negate() {
-        lock.writeLock();
+        writeLock();
         try{
             for (int i = 0; i < this.length(); i++) {
                 this.vector[i] = -1 * this.vector[i];
             }
         } 
         finally {
-            lock.writeUnlock(); // Release write lock
+            writeUnlock(); // Release write lock
         }
     }
 
@@ -124,9 +180,83 @@ public class SharedVector {
         if (other == null) {
                 throw new IllegalArgumentException("Cannot compute dot product with a null vector.");
             }
-        try{
-           
+        if (System.identityHashCode(this) > System.identityHashCode(other)) {
+            other.readLock();
+            try {
+                writeLock();
+                try{
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    double sum = 0.0;
+                    for (int i = 0; i < this.length(); i++) {
+                        sum = sum + (this.vector[i] * other.get(i));
+                    }
+                    return sum;
+                } 
+                finally {
+                    writeUnlock(); // Release write lock
+                }
+            }
+            finally {
+                other.readUnlock(); // Release read lock
+                }
+        }else if (System.identityHashCode(this) < System.identityHashCode(other)) { 
+            writeLock();
+            try {
+                other.readLock();
+                try{
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    double sum = 0.0;
+                    for (int i = 0; i < this.length(); i++) {
+                        sum = sum + (this.vector[i] * other.get(i));
+                    }
+                    return sum;
+                } 
+                finally {
+                    other.readUnlock(); // Release read lock
+                }
+            }
+            finally {
+                writeUnlock(); // Release write lock
+            }
+        }
+        else  {
+        synchronized (SharedVector.class) {
+            writeLock();
+            try {
+                other.readLock();
+                try {
+                    
+                    if (this.orientation != other.orientation) {
+                        throw new IllegalArgumentException("Vectors must have the same orientation to add.");
+                    }
+                    if (this.length() != other.length()) {
+                        throw new IllegalArgumentException("Vectors must be of the same length to add.");
+                    }
+                    double sum = 0.0;
+                    for (int i = 0; i < this.length(); i++) {
+                        sum = sum + (this.vector[i] * other.get(i));
+                    }
+                    return sum;
+                } finally {
+                    other.readUnlock();
+                }
+            } finally {
+                writeUnlock();
+            }
+        }
     }
+}
+
 
     public void vecMatMul(SharedMatrix matrix) {
         // TODO: compute row-vector × matrix
