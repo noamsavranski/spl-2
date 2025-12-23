@@ -255,10 +255,99 @@ public class SharedVector {
             }
         }
     }
-}
 
 
-    public void vecMatMul(SharedMatrix matrix) {
-        // TODO: compute row-vector × matrix
+    //compute row-vector × matrix
+}    public void vecMatMul(SharedMatrix matrix) {
+        if (matrix == null) {
+        throw new IllegalArgumentException("Matrix cannot be null");
+        }
+        if (matrix.length() == 0) {
+            throw new IllegalArgumentException("Matrix cannot be empty");
+        }
+        if (System.identityHashCode(this) < System.identityHashCode(matrix)) {
+            this.writeLock();
+            try{
+             for (int i = 0; i < matrix.length(); i++) matrix.get(i).readLock();
+                try{
+                    if (this.length() != matrix.length()) {
+                        throw new IllegalArgumentException("Vector length must match the number of matrix rows for multiplication.");
+                    }
+                    double[] result = new double[matrix.get(0).length()];
+                    for (int j = 0; j < matrix.get(0).length(); j++) {
+                        double sum = 0.0;
+                        for (int i = 0; i < matrix.length(); i++) {
+                            sum += this.vector[i] * matrix.get(i).get(j);
+                        }
+                        result[j] = sum;
+                    }
+                    this.vector = result;
+                    this.orientation = VectorOrientation.ROW_MAJOR;
+                } 
+                finally {
+                  for (int i = 0; i < matrix.length(); i++) matrix.get(i).readUnlock();
+                }
+            }
+            finally {
+                this.writeUnlock();
+            }
+        } 
+        else if (System.identityHashCode(this) > System.identityHashCode(matrix)) {
+           for (int i = 0; i < matrix.length(); i++) matrix.get(i).readLock();
+            try{
+                this.writeLock();
+                try{
+                    if (this.length() != matrix.length()) {
+                        throw new IllegalArgumentException("Vector length must match the number of matrix rows for multiplication.");
+                    }
+                    double[] result = new double[matrix.get(0).length()];
+                    for (int j = 0; j < matrix.get(0).length(); j++) {
+                        double sum = 0.0;
+                        for (int i = 0; i < matrix.length(); i++) {
+                            sum += this.vector[i] * matrix.get(i).get(j);
+                        }
+                        result[j] = sum;
+                    }
+                    this.vector = result;
+                    this.orientation = VectorOrientation.ROW_MAJOR;
+                } 
+                finally {
+                    this.writeUnlock();
+                }
+            }
+            finally {
+               for (int i = 0; i < matrix.length(); i++) matrix.get(i).readUnlock();
+            }
+        }
+        else {
+            synchronized(SharedVector.class) {
+                this.writeLock();
+                try{
+                   for (int i = 0; i < matrix.length(); i++) matrix.get(i).readLock();
+                    try{
+                        if (this.length() != matrix.length()) {
+                            throw new IllegalArgumentException("Vector length must match the number of matrix rows for multiplication.");
+                        }
+                        double[] result = new double[matrix.get(0).length()];
+                        for (int j = 0; j <matrix.get(0).length(); j++) {
+                            double sum = 0.0;
+                            for (int i = 0; i < matrix.length(); i++) {
+                                sum += this.vector[i] * matrix.get(i).get(j);
+                            }
+                            result[j] = sum;
+                        }
+                        this.vector = result;
+                        this.orientation = VectorOrientation.ROW_MAJOR;
+                    }
+                    finally {
+                       for (int i = 0; i < matrix.length(); i++) matrix.get(i).readUnlock();
+                    }
+                }
+                finally {
+                    this.writeUnlock();
+                }
+            }
+        }
     }
 }
+
