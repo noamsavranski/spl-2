@@ -56,7 +56,16 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      * it throws IllegalStateException.
      */
     public void newTask(Runnable task) {
-       // TODO
+       if (task == null){
+        throw new IllegalArgumentException("task cannot be null");
+       }
+        if (!alive.get()){
+         throw new IllegalStateException("Worker is shut down");   
+        } 
+        boolean ok = handoff.offer(task);
+        if (!ok) {
+        throw new IllegalStateException("Worker " + id + " is not ready to accept a task");
+        }
     }
 
     /**
@@ -64,17 +73,50 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      * Inserts a poison pill so the worker wakes up and exits.
      */
     public void shutdown() {
-       // TODO
+       alive.set(false);
+       handoff.offer(POISON_PILL);
     }
 
     @Override
     public void run() {
-       // TODO
+        while (true) {
+            try {
+                idleStartTime.set(System.nanoTime());
+                Runnable task = handoff.take();
+                long now = System.nanoTime();
+                long idleStart = idleStartTime.get();
+                timeIdle.addAndGet(now - idleStart);
+                if (task == POISON_PILL){
+                    break;
+                }
+                busy.set(true);
+                long start = System.nanoTime();
+                try {
+                    task.run();
+                }
+                finally {
+                    long end = System.nanoTime();
+                    timeUsed.addAndGet(end - start);
+                    busy.set(false);
+                }
+                if (!alive.get()) {
+                    break;
+                }
+            }
+            catch (InterruptedException e) {
+                 if (!alive.get()) {
+                    break;
+                }
+            }
+        
+        }
     }
-
     @Override
     public int compareTo(TiredThread o) {
-        // TODO
-        return 0;
-    }
+        int cmp = Double.compare(this.getFatigue(), o.getFatigue());
+        if (cmp != 0) {
+            return cmp; 
+        }
+        return Integer.compare(this.id, o.id);
+   }
 }
