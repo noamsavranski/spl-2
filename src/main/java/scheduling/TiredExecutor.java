@@ -9,7 +9,7 @@ public class TiredExecutor {
 
     private final TiredThread[] workers;
     private final PriorityBlockingQueue<TiredThread> idleMinHeap = new PriorityBlockingQueue<>();
-    private final AtomicInteger inFlight = new AtomicInteger(0);
+    private final AtomicInteger inFlight = new AtomicInteger(0);//how many tasks are currently being executed
 
     public TiredExecutor(int numThreads) {
         if (numThreads <= 0) {
@@ -27,6 +27,7 @@ public class TiredExecutor {
       
     }
 
+    // Submit a single task to be executed by an idle worker. If no idle workers are available,this method blocks until one becomes available.
     public void submit(Runnable task) {
         if (task == null) {
             throw new IllegalArgumentException("Task cannot be null");
@@ -36,39 +37,32 @@ public class TiredExecutor {
             try {
                  w = idleMinHeap.take();
             }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("waiting for idle worker interrupted", e);
-                }
-                inFlight.incrementAndGet();
-                Runnable wrapped = () -> { 
-                    try {
-                        task.run(); 
-                    }
-                     finally {
-                        idleMinHeap.offer(w);
-                        inFlight.decrementAndGet();
-                        synchronized (TiredExecutor.this) { 
-                            this.notifyAll();
-                        }
-                     }
-                };
-                try {
-                    w.newTask(wrapped);
-                    return;
-                }
-                catch (IllegalStateException ex) {
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("waiting for idle worker interrupted", e);
+            }
+            inFlight.incrementAndGet();
+            Runnable wrapped = () -> { 
+                try {task.run();}
+                finally {
                     idleMinHeap.offer(w);
                     inFlight.decrementAndGet();
+                    synchronized (TiredExecutor.this) { 
+                        TiredExecutor.this.notifyAll();
+                    }
                 }
-            
+            };
+            try {
+                w.newTask(wrapped);//assign the task to the worker
+                return;
+                }
+            catch (IllegalStateException ex) {
+                idleMinHeap.offer(w);
+                inFlight.decrementAndGet();
+            }
         }
     }
             
-
-
-    
-
     public void submitAll(Iterable<Runnable> tasks) {
         if (tasks == null) {
             throw new IllegalArgumentException("tasks cannot be null");
@@ -79,7 +73,7 @@ public class TiredExecutor {
         synchronized (this) {
             while (inFlight.get() != 0) {
                 try {
-                    this.wait();
+                    this.wait();// puts the calling thread (the Main thread) into a "Waiting" state. It releases the lock and stays idle, consuming no CPU power, while the workers do the math.
                 } 
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -91,15 +85,15 @@ public class TiredExecutor {
 
     public void shutdown() throws InterruptedException {
        synchronized (this) {
-            while (inFlight.get() != 0) {
+            while (inFlight.get() != 0) {//wait for all tasks to finish
               this.wait();
             }
         }
         for (TiredThread w : workers) {
-            w.shutdown();
+            w.shutdown();//send poison pill, killing them
         }
         for (TiredThread w : workers) {
-            w.join();
+            w.join();//preventing zombie threads
         }
     }
 
@@ -112,7 +106,6 @@ public class TiredExecutor {
             sb.append("Worker #").append(w.getWorkerId()).append(" | busy=").append(w.isBusy())
             .append(" | fatigue=").append(String.format("%.3f", w.getFatigue())).append(" | timeUsed=").append(w.getTimeUsed())
             .append(" | timeIdle=").append(w.getTimeIdle()).append("\n");
-
         }
         return sb.toString();
     }

@@ -36,8 +36,8 @@ public class SharedMatrix {
     }
 
     //no need for locks since we are creating and replacing the entire matrix
+    //replace internal data with new row-major matrix
     public void loadRowMajor(double[][] matrix) {
-        // TODO: replace internal data with new row-major matrix
         if (matrix == null) 
             throw new IllegalArgumentException("Input matrix cannot be null."); 
         //if empty

@@ -14,8 +14,7 @@ public class Main {
       return;
     }
     String inputFilePath = args[0];
-    //we get a string and we need to convert it to an integer
-    int numThreads = Integer.parseInt(args[1]);
+    int numThreads = Integer.parseInt(args[1]); //we get a string and we need to convert it to an integer
     System.out.println("Input file path: " + inputFilePath);
     System.out.println("Number of threads: " + numThreads);
       
@@ -54,6 +53,11 @@ public class Main {
     } catch (Exception e) {
       System.err.println("An error occurred during execution:");
       e.printStackTrace(); 
+    }
+    finally {
+        System.out.println("Shutting down the engine...");
+        engine.shutdown();
+        System.out.println("The engine is off. WOW great job! :) Love ya");
     }
   }
 }    

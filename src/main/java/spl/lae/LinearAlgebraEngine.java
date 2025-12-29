@@ -25,6 +25,12 @@ public class LinearAlgebraEngine {
             return null;
 
         List<ComputationNode> children = computationRoot.getChildren();
+
+        //if children is null or empty, we are at a leaf node (MATRIX), so we return it as is
+        if (children == null || children.isEmpty()) {
+            return computationRoot;
+        }
+
         for (ComputationNode kid : children) {
             run(kid); // Recursive call
         }
@@ -70,7 +76,7 @@ public class LinearAlgebraEngine {
             executor.submitAll(tasks); //submit tasks one by one and to executer and wait until all finish
         }
         double[][] resultData = this.leftMatrix.readRowMajor();
-        node.resolve(resultData);//Resolves this node by setting its type to MATRIX and storing the computed matrix.
+        node.resolve(resultData);//Resolves turn operator node to matrix node and deltes childten
     }
 
      // return tasks that perform row-wise addition
@@ -131,5 +137,16 @@ public class LinearAlgebraEngine {
     //helps us check the programm is parallel
     public String getWorkerReport() {
        return executor.getWorkerReport();
+    }
+
+    //Helper method we did
+    //shutdown the executor and its threads
+    public void shutdown() {
+        try {
+            this.executor.shutdown();
+        } 
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
