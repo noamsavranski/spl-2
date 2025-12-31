@@ -37,35 +37,29 @@ public class SharedMatrix {
 
     //no need for locks since we are creating and replacing the entire matrix
     //replace internal data with new row-major matrix
-    public void loadRowMajor(double[][] matrix) {
-        if (matrix == null) 
-            throw new IllegalArgumentException("Input matrix cannot be null."); 
-        //if empty
-        if (matrix.length == 0) {
-            this.vectors = new SharedVector[0];
+   public void loadRowMajor(double[][] matrix) {
+        if (matrix == null){
+            throw new IllegalArgumentException("Input matrix cannot be null.");
+        }
+        if(matrix.length == 0){
             return;
         }
-        //checking if in the new array i have null vectors
-        //CHECKING RECTANGULARITY
-        int numCols = matrix[0].length;
-        for (int i = 0; i < matrix.length; i++) {
-            if (matrix[i] == null) {
-             throw new IllegalArgumentException("Matrix row cannot be null.");
-         }
-            if (matrix[i].length != numCols) {
-                throw new IllegalArgumentException("Input matrix must be rectangular.");
-            }
+
+        SharedVector[] oldVectors = this.vectors;
+        acquireAllVectorWriteLocks(oldVectors);
+        try {
+            SharedVector[] newVectors = new SharedVector[matrix.length];
+            for (int i = 0; i < matrix.length; i++){
+                newVectors[i] = new SharedVector(matrix[i].clone(), VectorOrientation.ROW_MAJOR);
         }
-        //initialize new matrix
-        SharedVector[] newVectors = new SharedVector[matrix.length];
-        for (int i = 0; i < matrix.length; i++) {
-           newVectors[i] = new SharedVector(matrix[i], VectorOrientation.ROW_MAJOR);
+            this.vectors = newVectors;
+        } 
+        finally {
+            releaseAllVectorWriteLocks(oldVectors);
         }
-        //THE SWAP!
-        this.vectors = newVectors;
     }
+
     public void loadColumnMajor(double[][] matrix) {
-        // TODO: replace internal data with new column-major matrix
        if (matrix == null) {
         throw new IllegalArgumentException("Input matrix cannot be null.");
     }
@@ -102,7 +96,6 @@ public class SharedMatrix {
 
     //this method returns the matrix as vectors of rows
     public double[][] readRowMajor() {
-        // TODO: return matrix contents as a row-major double[][]
     //making a current copy a "snapshot"
         SharedVector[] currMatrix = this.vectors;
     

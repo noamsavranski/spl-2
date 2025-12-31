@@ -20,25 +20,28 @@ public class LinearAlgebraEngine {
 
     //resolve computation tree step by step until final matrix is produced
     //we will use it using recursion
-    public ComputationNode run(ComputationNode computationRoot) {
-        if (computationRoot == null) 
-            return null;
-
-        List<ComputationNode> children = computationRoot.getChildren();
-
-        //if children is null or empty, we are at a leaf node (MATRIX), so we return it as is
-        if (children == null || children.isEmpty()) {
+   public ComputationNode run(ComputationNode computationRoot) {
+        try {
+            if (computationRoot.getNodeType() == ComputationNodeType.MATRIX){
+                return computationRoot;
+            }
+            ComputationNode resolvable = computationRoot.findResolvable();
+            while (resolvable != null){
+                loadAndCompute(resolvable);
+                resolvable = computationRoot.findResolvable();
+            }
             return computationRoot;
         }
-
-        for (ComputationNode kid : children) {
-            run(kid); // Recursive call
+        finally{
+            try {
+                executor.shutdown();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
-
-        loadAndCompute(computationRoot);//all the children are solved and now we can solve us, the current node
-
-        return computationRoot;
     }
+
 
     // Load operand matrices and compute the result
     //an assumption is that the children of the node are already computed and solved
@@ -78,6 +81,7 @@ public class LinearAlgebraEngine {
         double[][] resultData = this.leftMatrix.readRowMajor();
         node.resolve(resultData);//Resolves turn operator node to matrix node and deltes childten
     }
+
 
      // return tasks that perform row-wise addition
     public List<Runnable> createAddTasks() {
@@ -137,16 +141,5 @@ public class LinearAlgebraEngine {
     //helps us check the programm is parallel
     public String getWorkerReport() {
        return executor.getWorkerReport();
-    }
-
-    //Helper method we did
-    //shutdown the executor and its threads
-    public void shutdown() {
-        try {
-            this.executor.shutdown();
-        } 
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

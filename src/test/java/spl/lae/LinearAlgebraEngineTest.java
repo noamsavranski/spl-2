@@ -1,4 +1,4 @@
-package lae;
+package spl.lae;
 import spl.lae.LinearAlgebraEngine;
 import parser.*;
 import org.junit.jupiter.api.Test;

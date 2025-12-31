@@ -39,7 +39,7 @@ public class TiredExecutor {
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("waiting for idle worker interrupted", e);
+                return;
             }
             inFlight.incrementAndGet();
             Runnable wrapped = () -> { 

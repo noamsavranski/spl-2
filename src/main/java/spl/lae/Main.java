@@ -4,60 +4,62 @@ import java.io.IOException;
 import parser.*;
 
 public class Main {
-  public static void main(String[] args) throws IOException {
-      //args is an array of strings where each string is a line from the input file
-      //args[0] is the path to the input file
-      //args[1] is the number of threads to use
-      //at minimun we need 2 arguments so
-    if (args.length < 2) {
-      System.out.println("Error: not enough arguments");
-      return;
-    }
-    String inputFilePath = args[0];
-    int numThreads = Integer.parseInt(args[1]); //we get a string and we need to convert it to an integer
-    System.out.println("Input file path: " + inputFilePath);
-    System.out.println("Number of threads: " + numThreads);
-      
-    // Create the Engine (which creates the TiredExecutor + Thread Pool)
-    LinearAlgebraEngine engine = new LinearAlgebraEngine(numThreads);
-        
-    // Create the Parser (which reads the file)
-    //input parse returns a single root note and not a list of nodes
-    InputParser parser = new InputParser();
+    public static void main(String[] args) throws IOException {
 
-    try {
-      // Parse the file into a Computation Tree
-      System.out.println("Parsing script file.");
-      ComputationNode command = parser.parse(inputFilePath);
-
-      // Run the Engine
-      System.out.println("Executing computation.");
-      ComputationNode result = engine.run(command);
-
-      // Check if it worked
-      if (result != null && result.getMatrix() != null) {
-      int rows = result.getMatrix().length;
-      int cols = result.getMatrix()[0].length;
-      System.out.println("Success! Final result matrix dimensions: " + rows + "x" + cols);
-      } 
-      else {
-        System.out.println("Computation failed or resulted in null matrix.");
+      if (args.length != 3) {
+        System.out.println("Usage: java -jar LAE.jar <numThreads> <inputFilePath> <outputFilePath>");
+        return;
       }
-      // Print the Worker Report
-      System.out.println("--------------------------------------------------");
-      System.out.println("Worker Activity Report:");
-      System.out.println(engine.getWorkerReport());
-      System.out.println("--------------------------------------------------");
+      
+      String inputPath = args[1];
+      String outputPath = args[2];
 
-    //handling errors
-    } catch (Exception e) {
-      System.err.println("An error occurred during execution:");
-      e.printStackTrace(); 
+      //parse the input file
+      try {
+        InputParser inputParser = new InputParser();
+        ComputationNode computationRoot = inputParser.parse(inputPath);
+
+        //create LinearAlgebraEngine with args[0] threads
+        int numThreads = Integer.parseInt(args[0]);
+
+        //handle associative nesting
+        recursiveAssociativeNesting(computationRoot);
+
+        LinearAlgebraEngine engine = new LinearAlgebraEngine(numThreads);
+
+        //run the computation
+        ComputationNode result = engine.run(computationRoot);
+
+        //report
+        System.out.println(engine.getWorkerReport());
+
+        //write the result to output file - success
+        OutputWriter.write(result.getMatrix(), outputPath);
+        }
+
+        catch (Exception e){
+          e.printStackTrace();
+          //write the result to output file - failure
+          OutputWriter.write(e.getMessage(), outputPath);
+        }
+      }
+
+      /**
+     * Recursive helper function to associativeNesting.
+     * Traverses the tree bottom-up (Post-Order) and applies associativeNesting to every node.
+     * This ensures that nested operations (like A+B+C) are correctly structured before execution.
+     */
+    private static void recursiveAssociativeNesting(ComputationNode node) {
+        if (node == null) {
+            return;
+        }
+
+        if (node.getChildren() != null) {
+            for (ComputationNode child : node.getChildren()) {
+                recursiveAssociativeNesting(child);
+            }
+        }
+
+        node.associativeNesting();
     }
-    finally {
-        System.out.println("Shutting down the engine...");
-        engine.shutdown();
-        System.out.println("The engine is off. WOW great job! :) Love ya");
-    }
-  }
-}    
+}
